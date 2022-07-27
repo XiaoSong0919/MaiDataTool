@@ -5,45 +5,89 @@ using System.Text;
 using System.Threading.Tasks;
 using System.IO;
 
-namespace ConsoleApp1
+namespace MaiDataChangeName
 {
-    internal class Program
+    internal class main
     {
         static int count = 0;
-        static string Output_Path,Path,Classification;
-        static List<string> Condition = new List<string>(); 
-        static void Main(string[] args)
+        static string Output_Path,Path;
+        static List<string> Condition = new List<string>();//规则列表
+        static string version = "1.1";
+        static void Logo()
         {
-            Console.WriteLine("###############MaiDataTool v1.0##############");
+            Console.WriteLine($"###############MaiDataTool v{version}##############");
             Console.WriteLine("作者:LeZi");
             Console.WriteLine("#############################################");
-            Console.WriteLine("[INFO]请输入分类文件夹所在目录：");
-            Console.WriteLine("(譬如D:/xxxx/xxxx/Output-NoBGA/maimai，输入D:/xxxx/xxxx/Output-NoBGA即可)");
-            Path = Get_Path();//获取路径
+        }
+        static void Main(string[] args)
+        {
+            Console.Clear();
+            Condition.Clear();
+            Logo();
+            Console.WriteLine("[INFO]请输入目录:");
+            var List = FileManage.Search(Console.ReadLine());
             Set_OutputPath();
             Set_Filter();
-            DirectoryInfo directoryInfo = new DirectoryInfo(Path);
+            Confirm(List);
+            Console.WriteLine("[INFO]正在修改，请稍后...");
+            Change_Directory_Name(List);
+            //DirectoryInfo directoryInfo = new DirectoryInfo(Path);
             //string[] dir_name = Directory.GetDirectories(Path);
-            foreach(var dir in directoryInfo.GetDirectories())
-            {
-                string dir_name = dir.FullName.Replace(Path,"").Replace("\\",""); 
-                Console.WriteLine($"[INFO]目前修改的分类:{dir_name}");
-                if (!Directory.Exists($"{Output_Path}/{dir_name}"))
-                    Directory.CreateDirectory($"{Output_Path}/{dir_name}");
-                Change_Directory_Name(dir.Name.ToString());
-            }
-            Console.WriteLine($"[INFO]修改完毕，共修改乐曲:{count}首");
+            //foreach(var dir in directoryInfo.GetDirectories())
+            //{
+            //    string dir_name = dir.FullName.Replace(Path,"").Replace("\\",""); 
+            //    Console.WriteLine($"[INFO]目前修改的分类:{dir_name}");
+            //    if (!Directory.Exists($"{Output_Path}/{dir_name}"))
+            //        Directory.CreateDirectory($"{Output_Path}/{dir_name}");
+            //    Change_Directory_Name(dir.Name.ToString());
+            //}
+            Console.WriteLine($"[INFO]修改完毕，共修改乐曲:{count}首，祝您收歌愉快XD");
             Console.ReadKey();
             
         }
-        static void Change_Directory_Name(string Class)
+        static void Confirm(List<string> dir_list)
+        {
+            Console.Clear();
+            Logo();
+            int c = 0;
+            Console.WriteLine("要修改的谱面:");
+            foreach (var target in dir_list)
+                Console.WriteLine(target);
+            Console.WriteLine($"列表中共有{dir_list.Count}个谱面\n-------------------------------------------");
+            Console.WriteLine("规则列表:\n");
+            foreach(var rule in Condition)
+            {
+                Console.WriteLine($"规则{c}");
+                var type = rule.Split(";")[0];
+                var data = rule.Split(";")[1];
+                if (type == "Title")
+                    Console.WriteLine($"歌曲名称:{data}  \n");
+                else if (type == "Shortid")
+                    Console.WriteLine($"歌曲ID:{data}  \n");
+                else if (type == "Version")
+                    Console.WriteLine($"歌曲发行版本:{data} \n");
+                else if (type == "Genre")
+                    Console.WriteLine($"歌曲类别:{data} \n");
+                else if (type == "Bpm")
+                    Console.WriteLine($"歌曲BPM:{data} \n");
+                else if (type == "Des")
+                    Console.WriteLine($"谱师:{data}\n");
+                else if (type == "Cabinet")
+                    Console.WriteLine($"歌曲版本:{data}\n");              
+            }
+            Console.WriteLine("确认以上信息吗?(Y/N)");
+            if (Console.ReadLine() != "Y")
+                Main(null);
+
+        }
+        static void Change_Directory_Name(List<string> dir_list)
         {
             int c = 0;
-            string[] dir_name = Directory.GetDirectories($"{Path}/{Class}");
+            //string[] dir_name = Directory.GetDirectories($"{Path}/{Class}");
             string Title = null,Shortid = null, Version = null, Genre = null, Bpm = null, Des = null, Cabinet = null;
-            foreach(string dir in dir_name)
+            foreach(string path in dir_list)
             {
-                string path = dir;
+                //string path = dir;
                 string[] fileline = File.ReadAllLines($"{path}/maidata.txt");
                 foreach(string line in fileline)//获取歌曲名
                 {
@@ -80,31 +124,31 @@ namespace ConsoleApp1
                 {
                     if (!Filter(Title, Shortid, Version, Genre, Bpm, Des, Cabinet))
                         continue;
-                    if (Directory.Exists($"{Output_Path}/{Class}/[{Shortid}]{Title}"))
+                    if (Directory.Exists($"{Output_Path}/[{Shortid}]{Title}"))
                     {
-                        Directory.Move(path, $"{Output_Path}/{Class}/[{Shortid}]{Title}_{c++}");
+                        Directory.Move(path, $"{Output_Path}/[{Shortid}]{Title}_{c++}");
                     }
                     else
                     {
-                        Directory.Move(path,$"{Output_Path}/{Class}/[{Shortid}]{Title}");
+                        Directory.Move(path,$"{Output_Path}/[{Shortid}]{Title}");
                     }
 
                 }
                 catch
                 {
                     Console.WriteLine($"[ERROR]发生错误，改用ID命名\n歌曲名称：[{Shortid }]{Title}");
-                    if (Directory.Exists($"{Output_Path}/{Class}/[{Shortid}]"))
+                    if (Directory.Exists($"{Output_Path}/[{Shortid}]"))
                     {
-                        Directory.Move(path, $"{Output_Path}/{Class}/[{Shortid}]_{c++}");
+                        Directory.Move(path, $"{Output_Path}/[{Shortid}]_{c++}");
                     }
                     else
                     {
-                        Directory.Move(path, $"{Output_Path}/{Class}/[{Shortid}]");
+                        Directory.Move(path, $"{Output_Path}/[{Shortid}]");
                     }
                 }
                 
                 Console.WriteLine($"已修改乐曲：[{Shortid}]{Title}");
-                Console.WriteLine("[INFO]修改完毕，祝您收歌愉快XD");
+                
                 count++;
             }
 
@@ -186,30 +230,39 @@ namespace ConsoleApp1
             else
                 return true;
         }
-        static string Get_Path()
-        {
-            string PATH = null;
-            PATH = Console.ReadLine();
-            while (!Directory.Exists(PATH))
-            {
-                Console.WriteLine("[ERROR]目录"+ PATH +"不存在！");
-                Console.Write("请输入谱面文件所在目录：");
-                PATH = Console.ReadLine();
-            }
-            Console.WriteLine("[INFO]当前工作目录：" + PATH);
-            DirectoryInfo directoryInfo = new DirectoryInfo(PATH);
-            Console.WriteLine("[INFO]工作目录下存在以下分类:");
-            foreach (var s in directoryInfo.GetDirectories())
-                Console.WriteLine(s.FullName.Replace(PATH,"").Replace("\\",""));
-            Console.WriteLine("[INFO]扫描完毕");
-            return PATH;
-        }
+        //static string Get_Path()
+        //{
+        //    string PATH = null;
+        //    PATH = Console.ReadLine();
+        //    while (!Directory.Exists(PATH))
+        //    {
+        //        Console.WriteLine("[ERROR]目录"+ PATH +"不存在！");
+        //        Console.Write("请输入谱面文件所在目录：");
+        //        PATH = Console.ReadLine();
+        //    }
+        //    Console.WriteLine("[INFO]当前工作目录：" + PATH);
+        //    DirectoryInfo directoryInfo = new DirectoryInfo(PATH);
+        //    Console.WriteLine("[INFO]工作目录下存在以下分类:");
+        //    foreach (var s in directoryInfo.GetDirectories())
+        //        Console.WriteLine(s.FullName.Replace(PATH,"").Replace("\\",""));
+        //    Console.WriteLine("[INFO]扫描完毕");
+        //    return PATH;
+        //}
         static void Set_OutputPath()//设置输出路径
         {
-            Console.WriteLine("[INFO]请输入输出路径(直接修改请回车):");
-            Output_Path = Console.ReadLine();
-            if (Output_Path == "")
-                Output_Path = Path;
+            Console.Clear();
+            Logo();
+            Console.WriteLine("[INFO]请输入输出路径:");
+            var Input = Console.ReadLine();
+            if (Directory.Exists(Input))
+                Output_Path = Input;
+            else
+            {
+                Console.WriteLine("[ERROR]文件夹不存在，请重新输入");
+                Console.ReadKey();
+                Set_OutputPath();
+            }
+                
         }
         static void Set_Filter()//设置筛选条件
         {
