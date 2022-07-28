@@ -10,7 +10,8 @@ namespace MaiDataChangeName
     internal class main
     {
         static int count = 0;
-        static string Output_Path,Path;
+        static string Output_Path,bitRate;
+        static bool AudioReCoding = false;
         static List<string> Condition = new List<string>();//规则列表
         static string version = "1.1";
         static void Logo()
@@ -28,6 +29,7 @@ namespace MaiDataChangeName
             var List = FileManage.Search(Console.ReadLine());
             Set_OutputPath();
             Set_Filter();
+            Set_ReCodingMusic();
             Confirm(List);
             Console.WriteLine("[INFO]正在修改，请稍后...");
             Change_Directory_Name(List);
@@ -75,8 +77,11 @@ namespace MaiDataChangeName
                 else if (type == "Cabinet")
                     Console.WriteLine($"歌曲版本:{data}\n");              
             }
+            Console.WriteLine("-------------------------------------------\n");
+            Console.WriteLine($"音频重编码:{AudioReCoding}\n音频码率:{bitRate}Kbps");
             Console.WriteLine("确认以上信息吗?(Y/N)");
-            if (Console.ReadLine() != "Y")
+            var input = Console.ReadLine();
+            if (input != "Y" && input != "y")
                 Main(null);
 
         }
@@ -127,23 +132,31 @@ namespace MaiDataChangeName
                     if (Directory.Exists($"{Output_Path}/[{Shortid}]{Title}"))
                     {
                         Directory.Move(path, $"{Output_Path}/[{Shortid}]{Title}_{c++}");
+                        if (AudioReCoding)
+                            Audio.ReCoding.MP3($"{Output_Path}/[{Shortid}]{Title}_{c - 1}", Convert.ToInt32(bitRate));
                     }
                     else
                     {
                         Directory.Move(path,$"{Output_Path}/[{Shortid}]{Title}");
+                        if (AudioReCoding)
+                            Audio.ReCoding.MP3($"{Output_Path}/[{Shortid}]{Title}", Convert.ToInt32(bitRate));
                     }
 
                 }
-                catch
+                catch(IOException e)
                 {
                     Console.WriteLine($"[ERROR]发生错误，改用ID命名\n歌曲名称：[{Shortid }]{Title}");
                     if (Directory.Exists($"{Output_Path}/[{Shortid}]"))
                     {
                         Directory.Move(path, $"{Output_Path}/[{Shortid}]_{c++}");
+                        if (AudioReCoding)
+                            Audio.ReCoding.MP3($"{Output_Path}/[{Shortid}]_{c - 1}",Convert.ToInt32(bitRate));
                     }
                     else
                     {
                         Directory.Move(path, $"{Output_Path}/[{Shortid}]");
+                        if (AudioReCoding)
+                            Audio.ReCoding.MP3($"{Output_Path}/[{Shortid}]", Convert.ToInt32(bitRate));
                     }
                 }
                 
@@ -266,8 +279,11 @@ namespace MaiDataChangeName
         }
         static void Set_Filter()//设置筛选条件
         {
-            List<string> list = new List<string>();
             Chose:
+            Console.Clear();
+            Logo();
+            List<string> list = new List<string>();
+            Console.WriteLine("[INFO]请输入想设置的筛选条件(回车以跳过筛选):");
             Console.WriteLine("0.标题");
             Console.WriteLine("1.歌曲ID");
             Console.WriteLine("2.版本");
@@ -275,7 +291,6 @@ namespace MaiDataChangeName
             Console.WriteLine("4.BPM");
             Console.WriteLine("5.谱师");
             Console.WriteLine("6.谱面版本(SD/DX)");
-            Console.WriteLine("请输入想设置的筛选条件(回车以跳过筛选):");
             var Input = Console.ReadLine();
             if(Input == "0")
             {
@@ -356,6 +371,24 @@ namespace MaiDataChangeName
                 Condition.Add($"Cabinet;{Console.ReadLine()}");
                 list.Add("6");
                 goto Chose;
+            }
+        }
+        static void Set_ReCodingMusic()//音频文件重编码
+        {
+            Console.Clear();
+            Logo();
+            Console.WriteLine("[INFO]是否要对音频文件进行重新编码?(Y/N):");
+            Console.WriteLine("Tip:这可以解决一些写谱软件(如Majdata)音频无法对齐的问题");
+            var Input = Console.ReadLine();
+            if (Input == "Y" || Input == "y")
+            {
+                Console.Clear();
+                Logo();
+                Console.WriteLine("MP3标准比特率如下:");
+                Console.WriteLine("320Kbps\n192Kbps\n128Kbps");
+                Console.WriteLine("请输入比特率(Kbps):");
+                bitRate = Console.ReadLine();
+                AudioReCoding = true;
             }
         }
     }
