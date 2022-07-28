@@ -14,12 +14,16 @@ namespace MaiDataChangeName
                 try
                 {
                     Console.WriteLine("[INFO]正在重编码音频...");
-                    var InputReader = new Mp3FileReader(InputFile);
-                    var InputWriter = new WaveFileWriter(InputFile, InputReader.WaveFormat);
+                    var InputReader = new Mp3FileReader($"{InputFile}/track.mp3");
+                    var InputWriter = new WaveFileWriter($"{InputFile}/tmpfile.wav", InputReader.WaveFormat);
                     InputReader.CopyTo(InputWriter);
-                    var OutputReader = new AudioFileReader(InputFile);
-                    var OutputWriter = new LameMP3FileWriter(InputFile, OutputReader.WaveFormat, bitRate);
+                    InputReader.Close();
+                    InputWriter.Close();
+                    var OutputReader = new AudioFileReader($"{InputFile}/tmpfile.wav");
+                    var OutputWriter = new LameMP3FileWriter($"{InputFile}/track.mp3", OutputReader.WaveFormat, bitRate);
                     OutputReader.CopyTo(OutputWriter);
+                    OutputReader.Close();
+                    OutputWriter.Close();
                     Console.WriteLine("[INFO]音频重编码完成");
                 }
                 catch(IOException e)
