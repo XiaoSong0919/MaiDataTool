@@ -18,6 +18,12 @@ namespace MaiDataChangeName
         }
         public static List<string> Search(string Path)
         {
+            if(!Directory.Exists(Path))
+            {
+                Console.WriteLine("[ERROR]文件夹不存在，请重新输入");
+                Console.ReadKey();
+                main.Main(null);
+            }
             Directory_List.Clear();
             Scan_Count = 0;
             DirectoryInfo directoryInfo = new(Path);

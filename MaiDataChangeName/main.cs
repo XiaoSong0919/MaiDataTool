@@ -4,27 +4,50 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
+using System.Threading;
+using System.Runtime.InteropServices;
 
 namespace MaiDataChangeName
 {
-    internal class main
+    static internal class main
     {
         static int count = 0;
         static string Output_Path,bitRate;
         static bool AudioReCoding = false;
+        public static double Total_Count, Finished_Count;
+        static ConsoleColor Default = Console.ForegroundColor;
         static List<string> Condition = new List<string>();//规则列表
-        static string version = "1.1";
+        static string version = "1.2";
+        static string Environment
+        {
+            get
+            {
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                    return "Linux";
+                else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                    return "Windows";
+                else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+                    return "OSX";
+                else if (!RuntimeInformation.IsOSPlatform(OSPlatform.FreeBSD))
+                    return "FreeBSD";
+                else
+                    return "Unknown";                     
+            }
+        }
         static void Logo()
         {
-            Console.WriteLine($"###############MaiDataTool v{version}##############");
+            Console.WriteLine($"############### MaiDataTool v{version} ##############");
             Console.WriteLine("作者:LeZi");
+            Console.WriteLine("框架: .Net Core 6.0");
+            Console.WriteLine($"运行环境: {Environment}");
             Console.WriteLine("#############################################");
         }
-        static void Main(string[] args)
+        public static void Main(string[] args)
         {
             Console.Clear();
             Condition.Clear();
             Logo();
+            Console.WriteLine("欢迎使用MaiDataTool!");
             Console.WriteLine("[INFO]请输入目录:");
             var List = FileManage.Search(Console.ReadLine());
             Set_OutputPath();
@@ -32,17 +55,22 @@ namespace MaiDataChangeName
             Set_ReCodingMusic();
             Confirm(List);
             Console.WriteLine("[INFO]正在修改，请稍后...");
-            Change_Directory_Name(List);
-            //DirectoryInfo directoryInfo = new DirectoryInfo(Path);
-            //string[] dir_name = Directory.GetDirectories(Path);
-            //foreach(var dir in directoryInfo.GetDirectories())
-            //{
-            //    string dir_name = dir.FullName.Replace(Path,"").Replace("\\",""); 
-            //    Console.WriteLine($"[INFO]目前修改的分类:{dir_name}");
-            //    if (!Directory.Exists($"{Output_Path}/{dir_name}"))
-            //        Directory.CreateDirectory($"{Output_Path}/{dir_name}");
-            //    Change_Directory_Name(dir.Name.ToString());
-            //}
+            List<Task> task_list = new();
+            List<string> Target_List = new();
+            
+            foreach (var item in List)
+            {
+                if(Filter_Path(item))
+                    Target_List.Add(item);
+            }
+            Total_Count = Target_List.Count;
+            foreach(var path in Target_List)
+            {
+                Task task = new(() => Change_Directory_Name(path));
+                task_list.Add(task);
+                task.Start();
+            }
+            Task.WaitAll(task_list.ToArray());
             Console.WriteLine($"[INFO]修改完毕，共修改乐曲:{count}首，祝您收歌愉快XD");
             Console.ReadKey();
             
@@ -78,57 +106,96 @@ namespace MaiDataChangeName
                     Console.WriteLine($"歌曲版本:{data}\n");              
             }
             Console.WriteLine("-------------------------------------------\n");
-            Console.WriteLine($"音频重编码:{AudioReCoding}\n音频码率:{bitRate}Kbps");
+            Console.WriteLine($"音频重编码:{AudioReCoding}\n音频码率:{bitRate}Kbps\n多线程编码: Enable");
+            Console.WriteLine("-------------------------------------------\n");
+            Console.WriteLine("");
             Console.WriteLine("确认以上信息吗?(Y/N)");
             var input = Console.ReadLine();
             if (input != "Y" && input != "y")
                 Main(null);
 
         }
-        static void Change_Directory_Name(List<string> dir_list)
+        static bool Filter_Path(string path)
+        {
+            string Title = null, Shortid = null, Version = null, Genre = null, Bpm = null, Des = null, Cabinet = null;
+            string[] fileline = File.ReadAllLines($"{path}/maidata.txt");
+            foreach (string line in fileline)//获取歌曲名
+            {
+                if (line.Contains("&title"))
+                {
+                    Title = line.Replace("&title=", "").Replace(" ", "");
+                }
+                if (line.Contains("&shortid"))
+                {
+                    Shortid = line.Replace("&shortid=", "");
+                }
+                if (line.Contains("&version"))
+                {
+                    Version = line.Replace("&version=", "");
+                }
+                if (line.Contains("&genre"))
+                {
+                    Genre = line.Replace("&genre=", "");
+                }
+                if (line.Contains("&wholebpm"))
+                {
+                    Bpm = line.Replace("&wholebpm=", "");
+                }
+                if (line.Contains("&des"))
+                {
+                    Des = line.Replace("&des=", "");
+                }
+                if (line.Contains("&cabinate"))
+                {
+                    Cabinet = line.Replace("&cabinate=", "");
+                }
+            }
+            return Filter(Title, Shortid, Version, Genre, Bpm, Des, Cabinet);
+        }
+        static void Change_Directory_Name(string path)
         {
             int c = 0;
             //string[] dir_name = Directory.GetDirectories($"{Path}/{Class}");
-            string Title = null,Shortid = null, Version = null, Genre = null, Bpm = null, Des = null, Cabinet = null;
-            foreach(string path in dir_list)
+            string Title = null, Shortid = null, Version = null, Genre = null, Bpm = null, Des = null, Cabinet = null;
+            //foreach(string path in dir_list)
+            //{
+            //string path = dir;
+            string[] fileline = File.ReadAllLines($"{path}/maidata.txt");
+            foreach (string line in fileline)//获取歌曲名
             {
-                //string path = dir;
-                string[] fileline = File.ReadAllLines($"{path}/maidata.txt");
-                foreach(string line in fileline)//获取歌曲名
+                if (line.Contains("&title"))
                 {
-                    if(line.IndexOf("&title=", StringComparison.OrdinalIgnoreCase) >= 0)
-                    {
-                        Title = line.Replace("&title=","").Replace(" ","");
-                    }
-                    if (line.IndexOf("&shortid=", StringComparison.OrdinalIgnoreCase) >= 0)
-                    {
-                        Shortid = line.Replace("&shortid=", "");
-                    }
-                    if (line.IndexOf("&version=", StringComparison.OrdinalIgnoreCase) >= 0)
-                    {
-                        Version = line.Replace("&version=", "");
-                    }
-                    if (line.IndexOf("&genre=", StringComparison.OrdinalIgnoreCase) >= 0)
-                    {
-                        Genre = line.Replace("&genre=", "");
-                    }
-                    if (line.IndexOf("&wholebpm=", StringComparison.OrdinalIgnoreCase) >= 0)
-                    {
-                        Bpm = line.Replace("&wholebpm=", "");
-                    }
-                    if (line.IndexOf("&des=", StringComparison.OrdinalIgnoreCase) >= 0)
-                    {
-                        Des = line.Replace("&des=", "");
-                    }
-                    if (line.IndexOf("&cabinet=", StringComparison.OrdinalIgnoreCase) >= 0)
-                    {
-                        Cabinet = line.Replace("&cabinet=", "");
-                    }
+                    Title = line.Replace("&title=", "").Replace(" ", "");
                 }
+                if (line.Contains("&shortid"))
+                {
+                    Shortid = line.Replace("&shortid=", "");
+                }
+                if (line.Contains("&version"))
+                {
+                    Version = line.Replace("&version=", "");
+                }
+                if (line.Contains("&genre"))
+                {
+                    Genre = line.Replace("&genre=", "");
+                }
+                if (line.Contains("&wholebpm"))
+                {
+                    Bpm = line.Replace("&wholebpm=", "");
+                }
+                if (line.Contains("&des"))
+                {
+                    Des = line.Replace("&des=", "");
+                }
+                if (line.Contains("&cabinate"))
+                {
+                    Cabinet = line.Replace("&cabinate=", "");
+                }
+            }
+            if (Filter(Title, Shortid, Version, Genre, Bpm, Des, Cabinet))
+            {                
                 try
                 {
-                    if (!Filter(Title, Shortid, Version, Genre, Bpm, Des, Cabinet))
-                        continue;
                     if (Directory.Exists($"{Output_Path}/[{Shortid}]{Title}"))
                     {
                         Directory.Move(path, $"{Output_Path}/[{Shortid}]{Title}_{c++}");
@@ -137,20 +204,19 @@ namespace MaiDataChangeName
                     }
                     else
                     {
-                        Directory.Move(path,$"{Output_Path}/[{Shortid}]{Title}");
+                        Directory.Move(path, $"{Output_Path}/[{Shortid}]{Title}");
                         if (AudioReCoding)
                             Audio.ReCoding.MP3($"{Output_Path}/[{Shortid}]{Title}", Convert.ToInt32(bitRate));
                     }
-
                 }
-                catch(IOException e)
+                catch (IOException e)
                 {
-                    Console.WriteLine($"[ERROR]发生错误，改用ID命名\n歌曲名称：[{Shortid }]{Title}");
+                    Console.WriteLine($"[Thread{Thread.CurrentThread.ManagedThreadId}][ERROR]发生错误，改用ID命名\n歌曲名称：[{Shortid}]{Title}");
                     if (Directory.Exists($"{Output_Path}/[{Shortid}]"))
                     {
                         Directory.Move(path, $"{Output_Path}/[{Shortid}]_{c++}");
                         if (AudioReCoding)
-                            Audio.ReCoding.MP3($"{Output_Path}/[{Shortid}]_{c - 1}",Convert.ToInt32(bitRate));
+                            Audio.ReCoding.MP3($"{Output_Path}/[{Shortid}]_{c - 1}", Convert.ToInt32(bitRate));
                     }
                     else
                     {
@@ -159,12 +225,14 @@ namespace MaiDataChangeName
                             Audio.ReCoding.MP3($"{Output_Path}/[{Shortid}]", Convert.ToInt32(bitRate));
                     }
                 }
-                
-                Console.WriteLine($"已修改乐曲：[{Shortid}]{Title}");
-                
+                Finished_Count++;
+                Console.WriteLine($"[Thread{Thread.CurrentThread.ManagedThreadId}]已修改乐曲：[{Shortid}]{Title}");
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"[INFO]已完成百分比:{Math.Round(Finished_Count / Total_Count, 2) * 100}%");
+                Console.ForegroundColor = Default;
                 count++;
-            }
-
+            }                
+            //}
         }
         static bool Filter(string Title, string Shortid, string Version, string Genre, string Bpm, string Des, string Cabinet)
         {
@@ -271,11 +339,18 @@ namespace MaiDataChangeName
                 Output_Path = Input;
             else
             {
-                Console.WriteLine("[ERROR]文件夹不存在，请重新输入");
-                Console.ReadKey();
-                Set_OutputPath();
-            }
-                
+                try
+                {
+                    Directory.CreateDirectory(Input);
+                    Output_Path = Input;
+                }
+                catch
+                {
+                    Console.WriteLine("[ERROR]输出路径有误，请重新输入");
+                    Console.ReadKey();
+                    Set_OutputPath();
+                }
+            }             
         }
         static void Set_Filter()//设置筛选条件
         {
