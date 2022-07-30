@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using System.IO;
 using System.Threading;
@@ -16,8 +14,22 @@ namespace MaiDataChangeName
         static bool AudioReCoding = false;
         public static double Total_Count, Finished_Count;
         static ConsoleColor Default = Console.ForegroundColor;
-        static List<string> Condition = new List<string>();//规则列表
-        static string version = "1.2";
+        static List<string> Rule_List = new List<string>();//规则列表
+        static List<Target> Target_List = new();//符合规则的谱面列表
+        static List<Target> List = new();
+        static string version = "1.2.1";
+        public struct Target
+        {
+            public string Path;
+            public string Title;
+            public string Shortid;
+            public string Version;
+            public string Genre;
+            public string Bpm;
+            public string Des;
+            public string Cabinet;
+
+        }
         static string Environment
         {
             get
@@ -40,31 +52,26 @@ namespace MaiDataChangeName
             Console.WriteLine("作者:LeZi");
             Console.WriteLine("框架: .Net Core 6.0");
             Console.WriteLine($"运行环境: {Environment}");
-            Console.WriteLine("#############################################");
+            Console.WriteLine("##############################################\n");
         }
         public static void Main(string[] args)
         {
             Console.Clear();
-            Condition.Clear();
+            Rule_List.Clear();
+            Target_List.Clear();
             Logo();
             Console.WriteLine("欢迎使用MaiDataTool!");
             Console.WriteLine("[INFO]请输入目录:");
-            var List = FileManage.Search(Console.ReadLine());
+            List = FileManage.Search(Console.ReadLine());
+            ReloadList();
             Set_OutputPath();
-            Set_Filter();
+            Set_Rule();
             Set_ReCodingMusic();
-            Confirm(List);
+            Confirm();
             Console.WriteLine("[INFO]正在修改，请稍后...");
-            List<Task> task_list = new();
-            List<string> Target_List = new();
-            
-            foreach (var item in List)
-            {
-                if(Filter_Path(item))
-                    Target_List.Add(item);
-            }
+            List<Task> task_list = new();            
             Total_Count = Target_List.Count;
-            foreach(var path in Target_List)
+            foreach (var path in Target_List)
             {
                 Task task = new(() => Change_Directory_Name(path));
                 task_list.Add(task);
@@ -75,19 +82,20 @@ namespace MaiDataChangeName
             Console.ReadKey();
             
         }
-        static void Confirm(List<string> dir_list)
+        static void Confirm()
         {
+            ReConfirm:
             Console.Clear();
             Logo();
-            int c = 0;
+            ReloadList();
             Console.WriteLine("要修改的谱面:");
-            foreach (var target in dir_list)
-                Console.WriteLine(target);
-            Console.WriteLine($"列表中共有{dir_list.Count}个谱面\n-------------------------------------------");
+            foreach (var target in Target_List)
+                Console.WriteLine(target.Path);
+            Console.WriteLine($"符合规则的共有{Target_List.Count}个谱面\n-------------------------------------------");
             Console.WriteLine("规则列表:\n");
-            foreach(var rule in Condition)
+            foreach(var rule in Rule_List)
             {
-                Console.WriteLine($"规则{c}");
+                Console.WriteLine($"规则{Rule_List.BinarySearch(rule)}");
                 var type = rule.Split(";")[0];
                 var data = rule.Split(";")[1];
                 if (type == "Title")
@@ -112,131 +120,72 @@ namespace MaiDataChangeName
             Console.WriteLine("确认以上信息吗?(Y/N)");
             var input = Console.ReadLine();
             if (input != "Y" && input != "y")
-                Main(null);
-
-        }
-        static bool Filter_Path(string path)
-        {
-            string Title = null, Shortid = null, Version = null, Genre = null, Bpm = null, Des = null, Cabinet = null;
-            string[] fileline = File.ReadAllLines($"{path}/maidata.txt");
-            foreach (string line in fileline)//获取歌曲名
             {
-                if (line.Contains("&title"))
+                ReSelect:
+                Console.WriteLine("请输入你想进行的操作:");
+                Console.WriteLine("1.编辑规则");
+                Console.WriteLine("2.返回");
+                Console.WriteLine("3.退出程序");
+                var ReChoose = Console.ReadLine();
+                if (ReChoose == "1")
+                    Edit_Rule();
+                else if (ReChoose == "2")
+                    goto ReConfirm;
+                else if (ReChoose == "3")
+                    System.Environment.Exit(0); 
+                else
                 {
-                    Title = line.Replace("&title=", "").Replace(" ", "");
-                }
-                if (line.Contains("&shortid"))
-                {
-                    Shortid = line.Replace("&shortid=", "");
-                }
-                if (line.Contains("&version"))
-                {
-                    Version = line.Replace("&version=", "");
-                }
-                if (line.Contains("&genre"))
-                {
-                    Genre = line.Replace("&genre=", "");
-                }
-                if (line.Contains("&wholebpm"))
-                {
-                    Bpm = line.Replace("&wholebpm=", "");
-                }
-                if (line.Contains("&des"))
-                {
-                    Des = line.Replace("&des=", "");
-                }
-                if (line.Contains("&cabinate"))
-                {
-                    Cabinet = line.Replace("&cabinate=", "");
+                    Console.WriteLine("[ERROR]我不是AI，不知道你在想啥");
+                    Console.ReadKey();
+                    goto ReSelect;
                 }
             }
-            return Filter(Title, Shortid, Version, Genre, Bpm, Des, Cabinet);
         }
-        static void Change_Directory_Name(string path)
+        static void Change_Directory_Name(Target path)
         {
             int c = 0;
-            //string[] dir_name = Directory.GetDirectories($"{Path}/{Class}");
-            string Title = null, Shortid = null, Version = null, Genre = null, Bpm = null, Des = null, Cabinet = null;
-            //foreach(string path in dir_list)
-            //{
-            //string path = dir;
-            string[] fileline = File.ReadAllLines($"{path}/maidata.txt");
-            foreach (string line in fileline)//获取歌曲名
+            try
             {
-                if (line.Contains("&title"))
+                if (Directory.Exists($"{Output_Path}/[{path.Shortid}]{path.Title}"))
                 {
-                    Title = line.Replace("&title=", "").Replace(" ", "");
+                    Directory.Move(path.Path, $"{Output_Path}/[{path.Shortid}]{path.Title}_{c++}");
+                    if (AudioReCoding)
+                        Audio.ReCoding.MP3($"{Output_Path}/[{path.Shortid}]{path.Title}_{c - 1}", Convert.ToInt32(bitRate));
                 }
-                if (line.Contains("&shortid"))
+                else
                 {
-                    Shortid = line.Replace("&shortid=", "");
-                }
-                if (line.Contains("&version"))
-                {
-                    Version = line.Replace("&version=", "");
-                }
-                if (line.Contains("&genre"))
-                {
-                    Genre = line.Replace("&genre=", "");
-                }
-                if (line.Contains("&wholebpm"))
-                {
-                    Bpm = line.Replace("&wholebpm=", "");
-                }
-                if (line.Contains("&des"))
-                {
-                    Des = line.Replace("&des=", "");
-                }
-                if (line.Contains("&cabinate"))
-                {
-                    Cabinet = line.Replace("&cabinate=", "");
+                    Directory.Move(path.Path, $"{Output_Path}/[{path.Shortid}]{path.Title}");
+                    if (AudioReCoding)
+                        Audio.ReCoding.MP3($"{Output_Path}/[{path.Shortid}]{path.Title}", Convert.ToInt32(bitRate));
                 }
             }
-            if (Filter(Title, Shortid, Version, Genre, Bpm, Des, Cabinet))
-            {                
-                try
+            catch (IOException e)
+            {
+                Console.WriteLine($"[Thread{Thread.CurrentThread.ManagedThreadId}][ERROR]发生错误，改用ID命名\n歌曲名称：[{path.Shortid}]{path.Title}");
+                if (Directory.Exists($"{Output_Path}/[{path.Shortid}]"))
                 {
-                    if (Directory.Exists($"{Output_Path}/[{Shortid}]{Title}"))
-                    {
-                        Directory.Move(path, $"{Output_Path}/[{Shortid}]{Title}_{c++}");
-                        if (AudioReCoding)
-                            Audio.ReCoding.MP3($"{Output_Path}/[{Shortid}]{Title}_{c - 1}", Convert.ToInt32(bitRate));
-                    }
-                    else
-                    {
-                        Directory.Move(path, $"{Output_Path}/[{Shortid}]{Title}");
-                        if (AudioReCoding)
-                            Audio.ReCoding.MP3($"{Output_Path}/[{Shortid}]{Title}", Convert.ToInt32(bitRate));
-                    }
+                    Directory.Move(path.Path, $"{Output_Path}/[{path.Shortid}]_{c++}");
+                    if (AudioReCoding)
+                        Audio.ReCoding.MP3($"{Output_Path}/[{path.Shortid}]_{c - 1}", Convert.ToInt32(bitRate));
                 }
-                catch (IOException e)
+                else
                 {
-                    Console.WriteLine($"[Thread{Thread.CurrentThread.ManagedThreadId}][ERROR]发生错误，改用ID命名\n歌曲名称：[{Shortid}]{Title}");
-                    if (Directory.Exists($"{Output_Path}/[{Shortid}]"))
-                    {
-                        Directory.Move(path, $"{Output_Path}/[{Shortid}]_{c++}");
-                        if (AudioReCoding)
-                            Audio.ReCoding.MP3($"{Output_Path}/[{Shortid}]_{c - 1}", Convert.ToInt32(bitRate));
-                    }
-                    else
-                    {
-                        Directory.Move(path, $"{Output_Path}/[{Shortid}]");
-                        if (AudioReCoding)
-                            Audio.ReCoding.MP3($"{Output_Path}/[{Shortid}]", Convert.ToInt32(bitRate));
-                    }
+                    Directory.Move(path.Path, $"{Output_Path}/[{path.Shortid}]");
+                    if (AudioReCoding)
+                        Audio.ReCoding.MP3($"{Output_Path}/[{path.Shortid}]", Convert.ToInt32(bitRate));
                 }
-                Finished_Count++;
-                Console.WriteLine($"[Thread{Thread.CurrentThread.ManagedThreadId}]已修改乐曲：[{Shortid}]{Title}");
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"[INFO]已完成百分比:{Math.Round(Finished_Count / Total_Count, 2) * 100}%");
-                Console.ForegroundColor = Default;
-                count++;
-            }                
+            }
+            Finished_Count++;
+            Console.WriteLine($"[Thread{Thread.CurrentThread.ManagedThreadId}]已修改乐曲：[{path.Shortid}]{path.Title}");
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"[INFO]已完成百分比:{Math.Round(Finished_Count / Total_Count, 2) * 100}%");
+            Console.ForegroundColor = Default;
+            count++;
             //}
         }
         static bool Filter(string Title, string Shortid, string Version, string Genre, string Bpm, string Des, string Cabinet)
         {
-            if (Condition.Count == 0)//不存在筛选条件
+            if (Rule_List.Count == 0)//不存在筛选条件
                 return true;
             List<int> list = new List<int>();
             List<int> Version_list = new List<int>();
@@ -246,7 +195,7 @@ namespace MaiDataChangeName
             List<int> Title_list = new List<int>();
             List<int> Shortid_list = new List<int>();
             List<int> Genre_list = new List<int>();
-            foreach (var s in Condition)
+            foreach (var s in Rule_List)
             {
                 if (s.Split(";")[0] == "Title")
                     if (s.Split(";")[1] != Title)
@@ -311,24 +260,6 @@ namespace MaiDataChangeName
             else
                 return true;
         }
-        //static string Get_Path()
-        //{
-        //    string PATH = null;
-        //    PATH = Console.ReadLine();
-        //    while (!Directory.Exists(PATH))
-        //    {
-        //        Console.WriteLine("[ERROR]目录"+ PATH +"不存在！");
-        //        Console.Write("请输入谱面文件所在目录：");
-        //        PATH = Console.ReadLine();
-        //    }
-        //    Console.WriteLine("[INFO]当前工作目录：" + PATH);
-        //    DirectoryInfo directoryInfo = new DirectoryInfo(PATH);
-        //    Console.WriteLine("[INFO]工作目录下存在以下分类:");
-        //    foreach (var s in directoryInfo.GetDirectories())
-        //        Console.WriteLine(s.FullName.Replace(PATH,"").Replace("\\",""));
-        //    Console.WriteLine("[INFO]扫描完毕");
-        //    return PATH;
-        //}
         static void Set_OutputPath()//设置输出路径
         {
             Console.Clear();
@@ -352,12 +283,13 @@ namespace MaiDataChangeName
                 }
             }             
         }
-        static void Set_Filter()//设置筛选条件
+        static void Set_Rule()//设置筛选条件
         {
             Chose:
             Console.Clear();
             Logo();
-            List<string> list = new List<string>();
+            ReloadList();
+            Console.WriteLine($"符合规则的共有{Target_List.Count}个谱面\n-------------------------------------------");
             Console.WriteLine("[INFO]请输入想设置的筛选条件(回车以跳过筛选):");
             Console.WriteLine("0.标题");
             Console.WriteLine("1.歌曲ID");
@@ -371,16 +303,14 @@ namespace MaiDataChangeName
             {
 
                 Console.WriteLine("请输入歌曲标题:");
-                Condition.Add($"Title;{Console.ReadLine()}");
-                list.Add("0");
+                Rule_List.Add($"Title;{Console.ReadLine()}");
                 goto Chose;
             }
             if (Input == "1")
             {
 
                 Console.WriteLine("请输入歌曲ID:");
-                Condition.Add($"Shortid;{Console.ReadLine()}");
-                list.Add("1");
+                Rule_List.Add($"Shortid;{Console.ReadLine()}");
                 goto Chose;
             }
             if (Input == "2")
@@ -406,8 +336,7 @@ namespace MaiDataChangeName
                 Console.WriteLine("maimai DX UNiVERSE");
                 Console.WriteLine("maimai DX UNiVERSE PLUS");
                 Console.WriteLine("请输入歌曲版本(复制粘贴):");
-                Condition.Add($"Version;{Console.ReadLine()}");
-                list.Add("2");
+                Rule_List.Add($"Version;{Console.ReadLine()}");
                 goto Chose;
             }
             if (Input == "3")
@@ -420,31 +349,27 @@ namespace MaiDataChangeName
                 Console.WriteLine("ゲームバラエティ");
                 Console.WriteLine("東方Project");
                 Console.WriteLine("请输入歌曲分类(请直接复制粘贴):");
-                Condition.Add($"Genre;{Console.ReadLine()}");
-                list.Add("3");
+                Rule_List.Add($"Genre;{Console.ReadLine()}");
                 goto Chose;
             }
             if (Input == "4")
             {
 
                 Console.WriteLine("请输入歌曲BPM:");
-                Condition.Add($"Bpm;{Console.ReadLine()}");
-                list.Add("4");
+                Rule_List.Add($"Bpm;{Console.ReadLine()}");
                 goto Chose;
             }
             if (Input == "5")
             {
 
                 Console.WriteLine("请输入谱师昵称:");
-                Condition.Add($"Des;{Console.ReadLine()}");
-                list.Add("5");
+                Rule_List.Add($"Des;{Console.ReadLine()}");
                 goto Chose;
             }
             if (Input == "6")
             {
                 Console.WriteLine("请输入谱面版本(SD/DX):");
-                Condition.Add($"Cabinet;{Console.ReadLine()}");
-                list.Add("6");
+                Rule_List.Add($"Cabinet;{Console.ReadLine()}");
                 goto Chose;
             }
         }
@@ -464,6 +389,82 @@ namespace MaiDataChangeName
                 Console.WriteLine("请输入比特率(Kbps):");
                 bitRate = Console.ReadLine();
                 AudioReCoding = true;
+            }
+        }
+        static void ReloadList()//刷新Target_List
+        {
+            Target_List.Clear();
+            foreach (var item in List)
+            {
+                if (Filter(item.Title, item.Shortid, item.Version, item.Genre, item.Bpm, item.Des, item.Cabinet))
+                    Target_List.Add(item);
+            }
+        }
+        static void Edit_Rule()
+        {
+            Console.Clear();
+            Logo();
+            Console.WriteLine("你想对现有的规则做什么？");
+            Console.WriteLine("1.添加规则");
+            Console.WriteLine("2.删除规则");
+            var Input = Console.ReadLine();
+            if (Input == "1")
+                Set_Rule();
+            else if (Input == "2")
+            {
+                ReDelete:
+                Console.Clear();
+                Logo();
+                ReloadList();
+                Console.WriteLine("规则列表:\n");
+                foreach (var rule in Rule_List)
+                {
+                    Console.WriteLine($"符合规则的共有{Target_List.Count}个谱面\n-------------------------------------------");
+                    Console.WriteLine($"规则{Rule_List.BinarySearch(rule)}");
+                    var type = rule.Split(";")[0];
+                    var data = rule.Split(";")[1];
+                    if (type == "Title")
+                        Console.WriteLine($"歌曲名称:{data}  \n");
+                    else if (type == "Shortid")
+                        Console.WriteLine($"歌曲ID:{data}  \n");
+                    else if (type == "Version")
+                        Console.WriteLine($"歌曲发行版本:{data} \n");
+                    else if (type == "Genre")
+                        Console.WriteLine($"歌曲类别:{data} \n");
+                    else if (type == "Bpm")
+                        Console.WriteLine($"歌曲BPM:{data} \n");
+                    else if (type == "Des")
+                        Console.WriteLine($"谱师:{data}\n");
+                    else if (type == "Cabinet")
+                        Console.WriteLine($"歌曲版本:{data}\n");
+                }
+                Console.WriteLine("请输入你想删除的规则(序号):");
+                ReInput:
+                int number;
+                if (Int32.TryParse(Console.ReadLine(), out number))
+                {
+                    Rule_List.RemoveAt(number);
+                    Console.WriteLine($"[INFO]已成功删除规则{number}");
+                    Console.WriteLine($"是否继续删除？(Y/N)");
+                    var input = Console.ReadLine();
+                    if (input == "Y" || input == "y")
+                        goto ReDelete;
+                    else
+                        Confirm();
+                }
+                else
+                {
+                    Console.WriteLine("[ERROR]无效输入");
+                    Console.ReadKey();
+                    goto ReInput;
+                }
+
+            }
+            else
+            {
+                Console.WriteLine("[ERROR]我不是AI，不知道你在想啥");
+                Console.ReadKey();
+                Edit_Rule();
             }
         }
     }
