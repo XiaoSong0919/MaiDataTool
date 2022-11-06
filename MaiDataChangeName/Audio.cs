@@ -4,13 +4,13 @@ using System;
 using System.IO;
 using System.Threading;
 
-namespace MaiDataChangeName
+namespace MaiDataTool
 {
     static internal class Audio
     {
         public static class ReCoding
         {
-            public static void MP3(string InputFile,int bitRate = 128)
+            public static void ToMP3(string InputFile,int bitRate = 128)
             {
                 try
                 {

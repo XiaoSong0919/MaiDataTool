@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using static MaiDataChangeName.main;
+using static MaiDataTool.main;
 
-namespace MaiDataChangeName
+namespace MaiDataTool
 {
     internal static class FileManage //文件搜索
     {
